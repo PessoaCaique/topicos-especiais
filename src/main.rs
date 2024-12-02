@@ -1,59 +1,149 @@
-use topicos_especiais::{Tarefa, Prioridade, salvar_tarefas, carregar_tarefas, adicionar_tarefa, atualizar_tarefa, deletar_tarefa};
-use std::fs;
+use std::io::{self, Write};
+use topicos_especiais::{Tarefa, Prioridade, criar_tarefa, salvar_tarefas, carregar_tarefas, atualizar_tarefa, remover_tarefa};
 
 fn main() {
-    // Criando a lista de tarefas
-    let mut tarefas = vec![
-        Tarefa {
-            nome: String::from("Estudar Rust"),
-            descricao: String::from("Estudar conceitos avançados de Rust."),
-            prazo: String::from("2024-12-05"),
-            prioridade: Prioridade::Alta,
-            duracao: 3,
-        },
-    ];
+    let mut tarefas = Vec::new();
 
-    // Salvar tarefas no arquivo
-    if let Err(e) = salvar_tarefas(&tarefas, "tarefas.json") {
-        eprintln!("Erro ao salvar tarefas: {}", e);
-        return;
+    // Menu de interação
+    loop {
+        println!("Escolha uma opção:");
+        println!("1. Adicionar Tarefa");
+        println!("2. Listar Tarefas");
+        println!("3. Atualizar Tarefa");
+        println!("4. Remover Tarefa");
+        println!("5. Salvar Tarefas em Arquivo");
+        println!("6. Carregar Tarefas de Arquivo");
+        println!("7. Sair");
+
+        let mut opcao = String::new();
+        io::stdin().read_line(&mut opcao).unwrap();
+        let opcao: u32 = opcao.trim().parse().unwrap();
+
+        match opcao {
+            1 => {
+                // Adicionar tarefa
+                let mut nome = String::new();
+                let mut descricao = String::new();
+                let mut prazo = String::new();
+                let mut duracao = String::new();
+                let mut prioridade = String::new();
+
+                println!("Digite o nome da tarefa:");
+                io::stdin().read_line(&mut nome).unwrap();
+
+                println!("Digite a descrição da tarefa:");
+                io::stdin().read_line(&mut descricao).unwrap();
+
+                println!("Digite o prazo da tarefa (formato YYYY-MM-DD):");
+                io::stdin().read_line(&mut prazo).unwrap();
+
+                println!("Digite a duração da tarefa (em horas):");
+                io::stdin().read_line(&mut duracao).unwrap();
+                let duracao: u32 = duracao.trim().parse().unwrap();
+
+                println!("Digite a prioridade (Alta, Média, Baixa):");
+                io::stdin().read_line(&mut prioridade).unwrap();
+
+                let prioridade = match prioridade.trim() {
+                    "Alta" => Prioridade::Alta,
+                    "Média" => Prioridade::Media,
+                    "Baixa" => Prioridade::Baixa,
+                    _ => Prioridade::Media,
+                };
+
+                match criar_tarefa(&nome.trim(), &descricao.trim(), &prazo.trim(), duracao, prioridade) {
+                    Ok(tarefa) => {
+                        tarefas.push(tarefa);
+                        println!("Tarefa adicionada com sucesso!");
+                    },
+                    Err(e) => println!("Erro ao adicionar tarefa: {}", e),
+                }
+            },
+            2 => {
+                // Listar tarefas
+                println!("Tarefas:");
+                for tarefa in &tarefas {
+                    println!("{:?}", tarefa);
+                }
+            },
+            3 => {
+                // Atualizar tarefa
+                let mut nome = String::new();
+                println!("Digite o nome da tarefa que deseja atualizar:");
+                io::stdin().read_line(&mut nome).unwrap();
+
+                let mut descricao = String::new();
+                let mut prazo = String::new();
+                let mut duracao = String::new();
+                let mut prioridade = String::new();
+
+                println!("Digite a nova descrição da tarefa:");
+                io::stdin().read_line(&mut descricao).unwrap();
+
+                println!("Digite o novo prazo da tarefa (formato YYYY-MM-DD):");
+                io::stdin().read_line(&mut prazo).unwrap();
+
+                println!("Digite a nova duração da tarefa (em horas):");
+                io::stdin().read_line(&mut duracao).unwrap();
+                let duracao: u32 = duracao.trim().parse().unwrap();
+
+                println!("Digite a nova prioridade (Alta, Média, Baixa):");
+                io::stdin().read_line(&mut prioridade).unwrap();
+
+                let prioridade = match prioridade.trim() {
+                    "Alta" => Prioridade::Alta,
+                    "Média" => Prioridade::Media,
+                    "Baixa" => Prioridade::Baixa,
+                    _ => Prioridade::Media,
+                };
+
+                let nova_tarefa = Tarefa {
+                    nome: nome.trim().to_string(),
+                    descricao: descricao.trim().to_string(),
+                    prazo: prazo.trim().to_string(),
+                    duracao,
+                    prioridade,
+                };
+
+                match atualizar_tarefa(&mut tarefas, nome.trim(), nova_tarefa) {
+                    Ok(_) => println!("Tarefa atualizada com sucesso!"),
+                    Err(e) => println!("{}", e),
+                }
+            },
+            4 => {
+                // Remover tarefa
+                let mut nome = String::new();
+                println!("Digite o nome da tarefa que deseja remover:");
+                io::stdin().read_line(&mut nome).unwrap();
+
+                match remover_tarefa(&mut tarefas, nome.trim()) {
+                    Ok(_) => println!("Tarefa removida com sucesso!"),
+                    Err(e) => println!("{}", e),
+                }
+            },
+            5 => {
+                // Salvar tarefas
+                match salvar_tarefas(&tarefas, "tarefas.json") {
+                    Ok(_) => println!("Tarefas salvas com sucesso!"),
+                    Err(e) => println!("Erro ao salvar tarefas: {}", e),
+                }
+            },
+            6 => {
+                // Carregar tarefas
+                match carregar_tarefas("tarefas.json") {
+                    Ok(tarefas_carregadas) => {
+                        tarefas = tarefas_carregadas;
+                        println!("Tarefas carregadas com sucesso!");
+                    },
+                    Err(e) => println!("Erro ao carregar tarefas: {}", e),
+                }
+            },
+            7 => {
+                break;
+            },
+            _ => {
+                println!("Opção inválida!");
+            },
+        }
     }
-
-    // Carregar as tarefas
-    match carregar_tarefas("tarefas.json") {
-        Ok(tarefas_carregadas) => println!("Tarefas carregadas: {:?}", tarefas_carregadas),
-        Err(e) => eprintln!("Erro ao carregar tarefas: {}", e),
-    }
-
-    // Adicionar uma nova tarefa
-    let nova_tarefa = Tarefa {
-        nome: String::from("Fazer Exercício"),
-        descricao: String::from("Fazer exercícios práticos de Rust."),
-        prazo: String::from("2024-12-06"),
-        prioridade: Prioridade::Media,
-        duracao: 2,
-    };
-    adicionar_tarefa(&mut tarefas, nova_tarefa);
-
-    // Atualizar uma tarefa existente
-    let tarefa_atualizada = Tarefa {
-        nome: String::from("Estudar Rust"),
-        descricao: String::from("Estudar a fundo os conceitos de Rust."),
-        prazo: String::from("2024-12-07"),
-        prioridade: Prioridade::Alta,
-        duracao: 4,
-    };
-    atualizar_tarefa(&mut tarefas, "Estudar Rust", tarefa_atualizada);
-
-    // Deletar uma tarefa
-    deletar_tarefa(&mut tarefas, "Fazer Exercício");
-
-    // Salvar as tarefas atualizadas
-    if let Err(e) = salvar_tarefas(&tarefas, "tarefas.json") {
-        eprintln!("Erro ao salvar tarefas: {}", e);
-        return;
-    }
-
-    // Exibir tarefas após as alterações
-    println!("Tarefas após alterações: {:?}", tarefas);
 }
