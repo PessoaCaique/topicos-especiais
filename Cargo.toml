@@ -10,4 +10,4 @@ chrono = { version = "0.4", features = ["serde"] }
 
 [[bin]]
 name = "topicos-especiais"
-path = "main.rs"
+path = "src/main.rs" 
