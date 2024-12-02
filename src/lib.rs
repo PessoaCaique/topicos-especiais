@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use std::fs::{File, self};
-use std::io::{Write};
+use serde::{Deserialize, Serialize};
+use std::fs::{self, File};
+use std::io::Write;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tarefa {
@@ -13,9 +13,16 @@ pub struct Tarefa {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Prioridade {
-    Alta,
-    Media,
     Baixa,
+    Media,
+    Alta,
+}
+
+impl PartialEq for Prioridade {
+    fn eq(&self, other: &Self) -> bool {
+        // Compara os dois valores da enum diretamente
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
 }
 
 impl Tarefa {
@@ -37,8 +44,21 @@ impl Tarefa {
     }
 }
 
+// lib.rs
+pub fn listar_tarefas(tarefas: &Vec<Tarefa>) {
+    for tarefa in tarefas {
+        println!("Tarefa: {}", tarefa.nome);
+    }
+}
+
 // Função para criar tarefa
-pub fn criar_tarefa(nome: &str, descricao: &str, prazo: &str, duracao: u32, prioridade: Prioridade) -> Result<Tarefa, String> {
+pub fn criar_tarefa(
+    nome: &str,
+    descricao: &str,
+    prazo: &str,
+    duracao: u32,
+    prioridade: Prioridade,
+) -> Result<Tarefa, String> {
     let tarefa = Tarefa {
         nome: nome.to_string(),
         descricao: descricao.to_string(),
@@ -54,7 +74,10 @@ pub fn criar_tarefa(nome: &str, descricao: &str, prazo: &str, duracao: u32, prio
 }
 
 // Função para salvar tarefas em um arquivo
-pub fn salvar_tarefas(tarefas: &Vec<Tarefa>, arquivo: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn salvar_tarefas(
+    tarefas: &Vec<Tarefa>,
+    arquivo: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let dados = serde_json::to_string(tarefas)?;
 
     let mut file = File::create(arquivo)?;
@@ -70,7 +93,11 @@ pub fn carregar_tarefas(arquivo: &str) -> Result<Vec<Tarefa>, Box<dyn std::error
 }
 
 // Função para atualizar uma tarefa existente
-pub fn atualizar_tarefa(tarefas: &mut Vec<Tarefa>, nome: &str, nova_tarefa: Tarefa) -> Result<(), String> {
+pub fn atualizar_tarefa(
+    tarefas: &mut Vec<Tarefa>,
+    nome: &str,
+    nova_tarefa: Tarefa,
+) -> Result<(), String> {
     nova_tarefa.validar()?;
 
     for tarefa in tarefas.iter_mut() {
