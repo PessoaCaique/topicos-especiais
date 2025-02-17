@@ -5,7 +5,7 @@ mod gerenciador_tarefas {
     use ink::prelude::{string::String, vec::Vec};
     use ink::storage::Mapping;
 
-    #[derive(scale::Encode, scale::Decode)]  // Mantenha apenas os necessários
+    #[derive(scale::Encode, scale::Decode)]
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
@@ -204,7 +204,7 @@ mod gerenciador_tarefas {
             let mut manager = GerenciadorTarefas::new();
             let id = manager.criar_tarefa(
                 "Estudar Rust".into(),
-                "Estudar smart contracts".into(),
+                "Estudar Smart Contracts".into(),
                 "2024-12-31".into(),
                 3,
                 Prioridade::Alta,
