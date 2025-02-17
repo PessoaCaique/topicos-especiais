@@ -1,4 +1,5 @@
-#![cfg_attr(not(feature = "std"), no_std, no_main)]
+#[cfg_attr(not(feature = "std"), no_std, no_main)]
+#[allow(clippy::cast_possible_truncation)]
 
 #[ink::contract]
 mod gerenciador_tarefas {
@@ -6,15 +7,16 @@ mod gerenciador_tarefas {
     use ink::storage::Mapping;
 
     /// Define as prioridades disponíveis para uma tarefa.
+    #[repr(u32)]
     #[derive(scale::Encode, scale::Decode, Clone, Debug, PartialEq, Eq)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    #[allow(clippy::cast_possible_truncation)]
     pub enum Prioridade {
-        Baixa,
-        Media,
-        Alta,
+        Baixa, // será representado como 0u8
+        Media, // 1u8
+        Alta,  // 2u8
     }
 
-    /// Estrutura que representa uma tarefa.
     #[derive(scale::Encode, scale::Decode, Clone, Debug, PartialEq, Eq)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
     pub struct Tarefa {
