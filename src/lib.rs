@@ -1,121 +1,179 @@
-use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::Write;
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Tarefa {
-    pub nome: String,
-    pub descricao: String,
-    pub prazo: String,
-    pub duracao: u32,
-    pub prioridade: Prioridade,
-}
+#[ink::contract]
+mod gerenciador_tarefas {
+    use ink::prelude::{string::String, vec::Vec};
+    use ink::storage::Mapping;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum Prioridade {
-    Baixa,
-    Media,
-    Alta,
-}
-
-impl PartialEq for Prioridade {
-    fn eq(&self, other: &Self) -> bool {
-        // Compara os dois valores da enum diretamente
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
-}
-
-impl Tarefa {
-    // Método de validação de dados
-    pub fn validar(&self) -> Result<(), String> {
-        if self.nome.trim().is_empty() {
-            return Err("Nome da tarefa não pode ser vazio.".to_string());
-        }
-        if self.descricao.trim().is_empty() {
-            return Err("Descrição da tarefa não pode ser vazia.".to_string());
-        }
-        if self.prazo.trim().is_empty() {
-            return Err("Prazo da tarefa não pode ser vazio.".to_string());
-        }
-        if self.duracao <= 0 {
-            return Err("A duração da tarefa deve ser maior que zero.".to_string());
-        }
-        Ok(())
-    }
-}
-
-// lib.rs
-pub fn listar_tarefas(tarefas: &Vec<Tarefa>) {
-    for tarefa in tarefas {
-        println!("Tarefa: {}", tarefa.nome);
-    }
-}
-
-// Função para criar tarefa
-pub fn criar_tarefa(
-    nome: &str,
-    descricao: &str,
-    prazo: &str,
-    duracao: u32,
-    prioridade: Prioridade,
-) -> Result<Tarefa, String> {
-    let tarefa = Tarefa {
-        nome: nome.to_string(),
-        descricao: descricao.to_string(),
-        prazo: prazo.to_string(),
-        duracao,
-        prioridade,
-    };
-
-    // Validando a tarefa
-    tarefa.validar()?;
-
-    Ok(tarefa)
-}
-
-// Função para salvar tarefas em um arquivo
-pub fn salvar_tarefas(
-    tarefas: &Vec<Tarefa>,
-    arquivo: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let dados = serde_json::to_string(tarefas)?;
-
-    let mut file = File::create(arquivo)?;
-    file.write_all(dados.as_bytes())?;
-    Ok(())
-}
-
-// Função para carregar tarefas de um arquivo
-pub fn carregar_tarefas(arquivo: &str) -> Result<Vec<Tarefa>, Box<dyn std::error::Error>> {
-    let dados = fs::read_to_string(arquivo)?;
-    let tarefas: Vec<Tarefa> = serde_json::from_str(&dados)?;
-    Ok(tarefas)
-}
-
-// Função para atualizar uma tarefa existente
-pub fn atualizar_tarefa(
-    tarefas: &mut Vec<Tarefa>,
-    nome: &str,
-    nova_tarefa: Tarefa,
-) -> Result<(), String> {
-    nova_tarefa.validar()?;
-
-    for tarefa in tarefas.iter_mut() {
-        if tarefa.nome == nome {
-            *tarefa = nova_tarefa;
-            return Ok(());
-        }
+    /// Define as prioridades disponíveis para uma tarefa.
+    #[derive(scale::Encode, scale::Decode, Clone, Debug, PartialEq, Eq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub enum Prioridade {
+        Baixa,
+        Media,
+        Alta,
     }
 
-    Err("Tarefa não encontrada.".to_string())
-}
+    /// Estrutura que representa uma tarefa.
+    #[derive(scale::Encode, scale::Decode, Clone, Debug, PartialEq, Eq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub struct Tarefa {
+        pub nome: String,
+        pub descricao: String,
+        pub prazo: String,
+        pub duracao: u32,
+        pub prioridade: Prioridade,
+    }
 
-// Função para remover uma tarefa
-pub fn remover_tarefa(tarefas: &mut Vec<Tarefa>, nome: &str) -> Result<(), String> {
-    if let Some(pos) = tarefas.iter().position(|t| t.nome == nome) {
-        tarefas.remove(pos);
-        Ok(())
-    } else {
-        Err("Tarefa não encontrada.".to_string())
+    /// Contrato Ink! que atua como gerenciador de tarefas.
+    #[ink(storage)]
+    #[derive(Default)]
+    pub struct GerenciadorTarefas {
+        tarefas: Mapping<u32, Tarefa>,
+        next_id: u32,
+    }
+
+    impl GerenciadorTarefas {
+        /// Construtor que inicializa o contrato.
+        #[ink(constructor)]
+        pub fn new() -> Self {
+            Self {
+                tarefas: Mapping::default(),
+                next_id: 0,
+            }
+        }
+
+        /// Valida os dados da tarefa.
+        fn validar_tarefa(tarefa: &Tarefa) -> Result<(), String> {
+            if tarefa.nome.trim().is_empty() {
+                return Err(String::from("Nome da tarefa não pode ser vazio."));
+            }
+            if tarefa.descricao.trim().is_empty() {
+                return Err(String::from("Descrição da tarefa não pode ser vazia."));
+            }
+            if tarefa.prazo.trim().is_empty() {
+                return Err(String::from("Prazo da tarefa não pode ser vazio."));
+            }
+            if tarefa.duracao == 0 {
+                return Err(String::from("A duração da tarefa deve ser maior que zero."));
+            }
+            Ok(())
+        }
+
+        /// Cria uma nova tarefa e a armazena.
+        #[ink(message)]
+        pub fn criar_tarefa(
+            &mut self,
+            nome: String,
+            descricao: String,
+            prazo: String,
+            duracao: u32,
+            prioridade: Prioridade,
+        ) -> Result<u32, String> {
+            let tarefa = Tarefa {
+                nome: nome.clone(),
+                descricao,
+                prazo,
+                duracao,
+                prioridade,
+            };
+            Self::validar_tarefa(&tarefa)?;
+            let id = self.next_id;
+            self.tarefas.insert(id, &tarefa);
+            self.next_id = self.next_id.checked_add(1).ok_or("ID overflow")?;
+            Ok(id)
+        }
+
+        /// Retorna uma lista com os IDs e as tarefas armazenadas.
+        #[ink(message)]
+        pub fn listar_tarefas(&self) -> Vec<(u32, Tarefa)> {
+            let mut lista = Vec::new();
+            for id in 0..self.next_id {
+                if let Some(tarefa) = self.tarefas.get(id) {
+                    lista.push((id, tarefa));
+                }
+            }
+            lista
+        }
+
+        /// Atualiza uma tarefa existente pelo seu ID.
+        #[ink(message)]
+        pub fn atualizar_tarefa(&mut self, id: u32, nova_tarefa: Tarefa) -> Result<(), String> {
+            Self::validar_tarefa(&nova_tarefa)?;
+            if self.tarefas.get(id).is_none() {
+                return Err(String::from("Tarefa não encontrada."));
+            }
+            self.tarefas.insert(id, &nova_tarefa);
+            Ok(())
+        }
+
+        /// Remove uma tarefa pelo seu ID.
+        #[ink(message)]
+        pub fn remover_tarefa(&mut self, id: u32) -> Result<(), String> {
+            if self.tarefas.get(id).is_some() {
+                self.tarefas.remove(id);
+                Ok(())
+            } else {
+                Err(String::from("Tarefa não encontrada."))
+            }
+        }
+    }
+
+    // Testes para verificar o funcionamento do contrato.
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[ink::test]
+        fn test_criar_listar() {
+            let mut contrato = GerenciadorTarefas::new();
+            let id = contrato.criar_tarefa(
+                "Estudar Ink!".into(),
+                "Estudar a criação de smart contracts com Ink!".into(),
+                "2024-12-31".into(),
+                3,
+                Prioridade::Alta,
+            ).expect("Falha ao criar tarefa");
+            let tarefas = contrato.listar_tarefas();
+            assert_eq!(tarefas.len(), 1);
+            assert_eq!(tarefas[0].0, id);
+        }
+
+        #[ink::test]
+        fn test_atualizar() {
+            let mut contrato = GerenciadorTarefas::new();
+            let id = contrato.criar_tarefa(
+                "Estudar Ink!".into(),
+                "Estudar a criação de smart contracts com Ink!".into(),
+                "2024-12-31".into(),
+                3,
+                Prioridade::Alta,
+            ).expect("Falha ao criar tarefa");
+            let tarefa_atualizada = Tarefa {
+                nome: "Estudar Ink - Atualizado".into(),
+                descricao: "Atualizar conhecimentos em Ink".into(),
+                prazo: "2025-01-15".into(),
+                duracao: 4,
+                prioridade: Prioridade::Media,
+            };
+            assert!(contrato.atualizar_tarefa(id, tarefa_atualizada.clone()).is_ok());
+            let lista = contrato.listar_tarefas();
+            assert_eq!(lista[0].1, tarefa_atualizada);
+        }
+
+        #[ink::test]
+        fn test_remover() {
+            let mut contrato = GerenciadorTarefas::new();
+            let id = contrato.criar_tarefa(
+                "Estudar Ink!".into(),
+                "Estudar a criação de smart contracts com Ink!".into(),
+                "2024-12-31".into(),
+                3,
+                Prioridade::Alta,
+            ).expect("Falha ao criar tarefa");
+            assert!(contrato.remover_tarefa(id).is_ok());
+            let lista = contrato.listar_tarefas();
+            assert_eq!(lista.len(), 0);
+        }
     }
 }
